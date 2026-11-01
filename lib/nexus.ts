@@ -54,6 +54,7 @@ export function getHostedCheckoutUrl(invoiceId: string): string {
 
 /**
  * Creates a unique ephemeral crypto invoice on Nexus Gateway.
+ * Uses a 20-second timeout to handle Render free-tier cold starts gracefully.
  */
 export async function createNexusInvoice(
   params: NexusCreateInvoiceParams
@@ -61,20 +62,46 @@ export async function createNexusInvoice(
   const apiUrl = getNexusApiUrl();
   const apiKey = getNexusApiKey();
 
-  const response = await fetch(`${apiUrl}/invoices`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-    },
-    body: JSON.stringify({
-      userId: params.userId,
-      amount: Number(params.amount),
-      network: params.network,
-      metadata: params.metadata || {},
-      webhookUrl: params.webhookUrl,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20_000); // 20s for cold start
+
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/invoices`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        userId: params.userId,
+        amount: Number(params.amount),
+        network: params.network,
+        metadata: params.metadata || {},
+        webhookUrl: params.webhookUrl,
+      }),
+      signal: controller.signal,
+    });
+  } catch (fetchErr: any) {
+    clearTimeout(timeoutId);
+    if (fetchErr?.name === "AbortError") {
+      throw new Error(
+        "Nexus payment gateway is waking up. Please wait 15–30 seconds and try again."
+      );
+    }
+    throw new Error(`Network error reaching Nexus gateway: ${fetchErr?.message || String(fetchErr)}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  // Guard: Render 503 responses return HTML. Detect and surface a clean error.
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Nexus gateway returned an unexpected response (HTTP ${response.status}). ` +
+      "The payment service may be temporarily unavailable. Please try again in 30 seconds."
+    );
+  }
 
   const json = await response.json();
 
@@ -98,13 +125,35 @@ export async function getNexusInvoice(
   const apiUrl = getNexusApiUrl();
   const apiKey = getNexusApiKey();
 
-  const response = await fetch(`${apiUrl}/invoices/${encodeURIComponent(invoiceId)}`, {
-    method: "GET",
-    headers: {
-      "x-api-key": apiKey,
-    },
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/invoices/${encodeURIComponent(invoiceId)}`, {
+      method: "GET",
+      headers: {
+        "x-api-key": apiKey,
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (fetchErr: any) {
+    clearTimeout(timeoutId);
+    if (fetchErr?.name === "AbortError") {
+      throw new Error("Nexus gateway request timed out. Please try again.");
+    }
+    throw new Error(`Network error: ${fetchErr?.message || String(fetchErr)}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Nexus gateway returned an unexpected response (HTTP ${response.status}).`
+    );
+  }
 
   const json = await response.json();
 
