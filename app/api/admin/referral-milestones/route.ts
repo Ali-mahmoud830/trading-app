@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
           value: list,
           description: "Referral milestone reward tiers (active referrals -> reward $)",
           category: "referrals",
-          is_public: true,
+
           updated_at: new Date().toISOString(),
         },
         { onConflict: "key" }
@@ -144,7 +144,7 @@ export async function PUT(req: NextRequest) {
             value: DEFAULT_MILESTONES,
             description: "Referral milestone reward tiers (active referrals -> reward $)",
             category: "referrals",
-            is_public: true,
+
             updated_at: new Date().toISOString(),
           },
           { onConflict: "key" }
@@ -164,7 +164,7 @@ export async function PUT(req: NextRequest) {
             value: sorted,
             description: "Referral milestone reward tiers (active referrals -> reward $)",
             category: "referrals",
-            is_public: true,
+
             updated_at: new Date().toISOString(),
           },
           { onConflict: "key" }
@@ -214,7 +214,7 @@ export async function PUT(req: NextRequest) {
           value: list,
           description: "Referral milestone reward tiers (active referrals -> reward $)",
           category: "referrals",
-          is_public: true,
+
           updated_at: new Date().toISOString(),
         },
         { onConflict: "key" }
@@ -268,7 +268,7 @@ export async function DELETE(req: NextRequest) {
           value: filtered,
           description: "Referral milestone reward tiers (active referrals -> reward $)",
           category: "referrals",
-          is_public: true,
+
           updated_at: new Date().toISOString(),
         },
         { onConflict: "key" }

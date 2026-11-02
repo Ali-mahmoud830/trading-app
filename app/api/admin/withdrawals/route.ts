@@ -43,7 +43,7 @@ export async function GET() {
       adminClient
         .from("withdrawal_settings")
         .select("fee_percentage, min_withdraw_amount, withdraw_enabled")
-        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
     ]);
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
       const { error: ctrlErr } = await adminClient
         .from("withdrawal_control")
         .upsert(
-          { id: 1, is_enabled: isEnabled, updated_at: new Date().toISOString() },
+          { id: 1, is_enabled: isEnabled },
           { onConflict: "id" }
         );
 
@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
       await adminClient
         .from("withdrawal_settings")
         .upsert(
-          { id: 1, is_enabled: isEnabled, withdraw_enabled: isEnabled, updated_at: new Date().toISOString() },
+          { id: 1, withdraw_enabled: isEnabled },
           { onConflict: "id" }
         );
 
@@ -220,7 +220,6 @@ export async function POST(req: NextRequest) {
             id: 1,
             fee_percentage: feePercentage,
             min_withdraw_amount: minWithdrawAmount,
-            updated_at: new Date().toISOString(),
           },
           { onConflict: "id" }
         );
@@ -309,7 +308,6 @@ export async function POST(req: NextRequest) {
           requested_amount: Number(newAmount),
           fee: feeVal,
           net_amount: netVal,
-          updated_at: new Date().toISOString(),
           ...(note ? { rejection_reason: `[Admin Edit Note]: ${note}` } : {}),
         })
         .eq("id", withdrawalId);
@@ -361,7 +359,6 @@ export async function POST(req: NextRequest) {
         .from("withdrawals")
         .update({
           status: newStatus,
-          updated_at: new Date().toISOString(),
           ...(txId ? { tx_id: txId } : {}),
           ...(rejectReason ? { rejection_reason: rejectReason } : {}),
         })

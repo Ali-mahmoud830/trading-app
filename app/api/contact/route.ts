@@ -119,9 +119,6 @@ export async function POST(req: NextRequest) {
       await adminClient.from("system_settings").upsert({
         key: "recent_contact_messages",
         value: updated,
-        description: "Customer inquiries submitted through the contact page",
-        category: "support",
-        updated_at: new Date().toISOString(),
       });
     } catch (dbErr) {
       console.warn("[Contact] Storing in system_settings warning:", dbErr);

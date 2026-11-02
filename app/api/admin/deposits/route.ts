@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { processReferralCommissions } from "@/lib/actions/commissions";
 
 const adminClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -152,7 +153,6 @@ export async function POST(req: NextRequest) {
         .update({
           is_enabled: Boolean(is_enabled),
           min_deposit_amount: Number(min_deposit_amount),
-          updated_at: new Date().toISOString(),
         })
         .neq("id", 0);
 
@@ -197,7 +197,6 @@ export async function POST(req: NextRequest) {
               .from("user_profiles")
               .update({
                 balance: currentBal + depositAmount,
-                updated_at: new Date().toISOString(),
               })
               .eq("uid", userProfile.uid);
           }
@@ -208,11 +207,21 @@ export async function POST(req: NextRequest) {
           .from("deposits")
           .update({
             status: "approved",
-            updated_at: new Date().toISOString(),
           })
           .eq("id", depositId);
 
         if (updErr) throw updErr;
+
+        // Fire referral commissions (non-blocking - don't let this fail the approval)
+        if (targetUserId && depositAmount > 0) {
+          processReferralCommissions(targetUserId, depositAmount, "deposit")
+            .then((result) => {
+              console.log(`[admin/deposits] Referral commissions for deposit approval:`, result);
+            })
+            .catch((err) => {
+              console.warn(`[admin/deposits] Referral commission error (non-fatal):`, err?.message);
+            });
+        }
       }
 
       return NextResponse.json({ ok: true, status: "approved" });
@@ -253,7 +262,6 @@ export async function POST(req: NextRequest) {
               .from("user_profiles")
               .update({
                 balance: Math.max(0, currentBal - depositAmount),
-                updated_at: new Date().toISOString(),
               })
               .eq("uid", userProfile.uid);
           }
@@ -264,7 +272,6 @@ export async function POST(req: NextRequest) {
         .from("deposits")
         .update({
           status: "rejected",
-          updated_at: new Date().toISOString(),
         })
         .eq("id", depositId);
 

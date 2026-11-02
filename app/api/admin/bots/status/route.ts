@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
       inspectBot(tokenGroup, expectedGroupWebhook, "group"),
       adminClient
         .from("user_profiles")
-        .select("uid, full_name, email, telegram_chat_id, balance, status, country, created_at, updated_at")
+        .select("uid, full_name, email, telegram_chat_id, balance, status, country, created_at")
         .not("telegram_chat_id", "is", null),
       adminClient
         .from("admin_notifications")

@@ -69,8 +69,8 @@ export async function processReferralCommissions(
             console.error(`[Commissions] Error fetching rates from ${rateTable}:`, ratesErr.message);
         }
 
-        // Default rates fallback based on user requirements: 10%, 7%, 2%
-        const defaultRates: Record<number, number> = { 1: 10, 2: 7, 3: 2 };
+        // Default rates fallback based on user requirements: Level 1: 7%, Level 2: 4%, Level 3: 2%
+        const defaultRates: Record<number, number> = { 1: 7, 2: 4, 3: 2 };
         const rates: Record<number, number> = { ...defaultRates };
 
         if (dbRates && dbRates.length > 0) {

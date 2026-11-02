@@ -53,9 +53,6 @@ async function saveTestimonials(list: any[]) {
   const { error } = await adminClient.from("system_settings").upsert({
     key: "homepage_testimonials",
     value: list,
-    description: "Customizable user testimonials and reviews displayed on the landing page and reviews section",
-    category: "marketing",
-    updated_at: new Date().toISOString(),
   });
   if (error) throw error;
 }
