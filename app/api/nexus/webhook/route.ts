@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { verifyNexusWebhookSignature, getNexusInvoice } from "@/lib/nexus";
+import { processReferralCommissions } from "@/lib/actions/commissions";
 
 function getAdminSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -109,6 +110,14 @@ export async function POST(req: Request) {
             console.log(
               `[Nexus/webhook] 💰 Successfully credited $${creditAmount} to user ${targetUserId}. New Balance: $${newBal}`
             );
+          }
+
+          // Process referral commissions (7%, 4%, 2%)
+          try {
+            const commRes = await processReferralCommissions(targetUserId, creditAmount, "deposit");
+            console.log(`[Nexus/webhook] Referral commissions result:`, commRes);
+          } catch (commErr) {
+            console.error("[Nexus/webhook] Error processing referral commissions:", commErr);
           }
         }
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getNexusInvoice } from "@/lib/nexus";
+import { processReferralCommissions } from "@/lib/actions/commissions";
 
 function getAdminSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -73,6 +74,13 @@ export async function GET(req: Request) {
             console.log(
               `[Nexus/check-status] Credited $${creditAmount} to user ${dep.user_id}. New balance: $${newBal}`
             );
+          }
+
+          // Process referral commissions (7%, 4%, 2%)
+          try {
+            await processReferralCommissions(dep.user_id, creditAmount, "deposit");
+          } catch (commErr) {
+            console.error("[Nexus/check-status] Error processing referral commissions:", commErr);
           }
         }
 
