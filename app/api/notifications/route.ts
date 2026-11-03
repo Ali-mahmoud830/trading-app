@@ -12,14 +12,14 @@ const adminClient = () =>
 
 export async function GET() {
   const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const admin = adminClient();
   const { data, error } = await admin
     .from("notifications")
     .select("*")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -30,14 +30,14 @@ export async function GET() {
 export async function DELETE() {
   // Mark all as read
   const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const admin = adminClient();
   await admin
     .from("notifications")
     .update({ read: true })
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .eq("read", false);
 
   return NextResponse.json({ success: true });

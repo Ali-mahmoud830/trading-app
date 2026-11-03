@@ -30,6 +30,10 @@ import {
   FileText,
   UserCheck,
   Unlink,
+  Trash2,
+  PlusCircle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,6 +45,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useLanguage } from "@/contexts/language-context";
+
+export interface GroupItem {
+  chatId: string;
+  title: string;
+  type: string;
+  botStatus: "administrator" | "creator" | "member" | "restricted" | "left" | "kicked" | "unknown";
+  isAdmin: boolean;
+  canSendMessages: boolean;
+  error?: string;
+}
 
 interface BotData {
   configured: boolean;
@@ -96,6 +111,9 @@ interface BotLog {
 }
 
 export default function AdminBotsPage() {
+  const { t, language } = useLanguage();
+  const isAr = language === "ar";
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [botsData, setBotsData] = useState<{
@@ -124,6 +142,9 @@ export default function AdminBotsPage() {
   const [sendingDailySummary, setSendingDailySummary] = useState(false);
   const [sendingTestSignal, setSendingTestSignal] = useState(false);
   const [groupChatIdInput, setGroupChatIdInput] = useState("");
+  const [newGroupIdInput, setNewGroupIdInput] = useState("");
+  const [connectedGroups, setConnectedGroups] = useState<GroupItem[]>([]);
+  const [testingGroupChatId, setTestingGroupChatId] = useState<string | null>(null);
   const [savingGroupId, setSavingGroupId] = useState(false);
   const [detectingGroupId, setDetectingGroupId] = useState(false);
 
@@ -275,15 +296,20 @@ export default function AdminBotsPage() {
     try {
       const res = await fetch("/api/admin/bots/settings");
       const data = await res.json();
-      if (res.ok && data.telegramGroupChatId) {
-        setGroupChatIdInput(data.telegramGroupChatId);
+      if (res.ok) {
+        if (data.telegramGroupChatId) {
+          setGroupChatIdInput(data.telegramGroupChatId);
+        }
+        if (data.groups) {
+          setConnectedGroups(data.groups);
+        }
       }
     } catch {}
   };
 
   const handleSaveGroupId = async () => {
     if (!groupChatIdInput.trim()) {
-      toast.error("يرجى إدخال معرف المجموعة (Group Chat ID)");
+      toast.error(isAr ? "يرجى إدخال معرف المجموعة (Group Chat ID)" : "Group Chat ID is required");
       return;
     }
     setSavingGroupId(true);
@@ -291,16 +317,88 @@ export default function AdminBotsPage() {
       const res = await fetch("/api/admin/bots/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "save_group_id", groupChatId: groupChatIdInput }),
+        body: JSON.stringify({ action: "save_group_ids", groupChatId: groupChatIdInput }),
       });
       const data = await res.json();
       if (res.ok && data.ok) {
-        toast.success(data.message || "تم حفظ معرف المجموعة بنجاح");
+        toast.success(data.message || (isAr ? "تم حفظ معرف المجموعة بنجاح" : "Group IDs saved successfully"));
+        await fetchBotSettings();
       } else {
-        toast.error(data.message || "فشل حفظ معرف المجموعة");
+        toast.error(data.message || (isAr ? "فشل حفظ معرف المجموعة" : "Failed to save group IDs"));
       }
     } catch {
-      toast.error("خطأ أثناء الاتصال");
+      toast.error(isAr ? "خطأ أثناء الاتصال" : "Network error");
+    } finally {
+      setSavingGroupId(false);
+    }
+  };
+
+  const handleTestGroupMessage = async (chatId: string) => {
+    setTestingGroupChatId(chatId);
+    try {
+      const res = await fetch("/api/admin/bots/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test_group", chatId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success(data.message || (isAr ? "تم إرسال رسالة الاختبار بنجاح!" : "Test message sent!"));
+      } else {
+        toast.error(data.message || (isAr ? "فشل إرسال رسالة الاختبار" : "Failed to send test message"));
+      }
+    } catch {
+      toast.error(isAr ? "خطأ في الاتصال" : "Network error");
+    } finally {
+      setTestingGroupChatId(null);
+    }
+  };
+
+  const handleRemoveGroupChat = async (chatId: string) => {
+    if (!confirm(isAr ? `هل أنت متأكد من إزالة المجموعة (${chatId}) من قائمة البث؟` : `Remove group (${chatId})?`)) return;
+    try {
+      const res = await fetch("/api/admin/bots/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remove_group_id", chatId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success(data.message || (isAr ? "تمت إزالة المجموعة بنجاح" : "Group removed"));
+        await fetchBotSettings();
+      } else {
+        toast.error(data.message || "Failed to remove group");
+      }
+    } catch {
+      toast.error(isAr ? "خطأ في الحذف" : "Error removing group");
+    }
+  };
+
+  const handleAddGroupChat = async () => {
+    const val = newGroupIdInput.trim();
+    if (!val) {
+      toast.error(isAr ? "يرجى إدخال معرف المجموعة أو القناة" : "Please enter a Group ID");
+      return;
+    }
+    const combined = groupChatIdInput ? `${groupChatIdInput}, ${val}` : val;
+    setGroupChatIdInput(combined);
+    setNewGroupIdInput("");
+    setSavingGroupId(true);
+    try {
+      const res = await fetch("/api/admin/bots/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save_group_ids", groupChatId: combined }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success(isAr ? "تمت إضافة المجموعة وفحص صلاحيات البوت بنجاح!" : "Group added & verified!");
+        await fetchBotSettings();
+      } else {
+        toast.error(data.message || "Failed to save group");
+      }
+    } catch {
+      toast.error(isAr ? "خطأ في الاتصال" : "Connection error");
     } finally {
       setSavingGroupId(false);
     }
@@ -317,12 +415,13 @@ export default function AdminBotsPage() {
       const data = await res.json();
       if (res.ok && data.ok && data.detectedChatId) {
         setGroupChatIdInput(data.detectedChatId);
-        toast.success(data.message || "تم اكتشاف معرف المجموعة وحفظه بنجاح!");
+        toast.success(data.message || (isAr ? "تم اكتشاف معرف المجموعة وحفظه بنجاح!" : "Group detected & saved!"));
+        await fetchBotSettings();
       } else {
-        toast.info(data.message || "لم يتم رصد رسالة مجموعة بعد. أضف @XSpyAIBot للمجموعة وأرسل رسالة داخلها.");
+        toast.info(data.message || (isAr ? "لم يتم رصد رسالة مجموعة بعد. أضف @XSpyAIBot للمجموعة وأرسل رسالة داخلها." : "No new groups detected."));
       }
     } catch {
-      toast.error("خطأ أثناء محاولة الكشف التلقائي");
+      toast.error(isAr ? "خطأ أثناء محاولة الكشف التلقائي" : "Auto-detect error");
     } finally {
       setDetectingGroupId(false);
     }
@@ -399,7 +498,7 @@ export default function AdminBotsPage() {
   const group = botsData?.groupBot;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto" dir={isAr ? "rtl" : "ltr"}>
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 dark:border-slate-800 pb-5">
         <div>
@@ -409,10 +508,12 @@ export default function AdminBotsPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                Telegram Bots Command Center
+                {isAr ? "مركز تحكم وإدارة بوتات تيليجرام" : "Telegram Bots Command Center"}
               </h1>
               <p className="text-sm text-gray-500 dark:text-slate-400">
-                مركز إدارة وتحكم بوتات تيليجرام والمراقبة الأمنية المباشرة
+                {isAr
+                  ? "إدارة ومراقبة أمنية مباشرة وفورية لكافة بوتات تيليجرام التابعة للمنصة"
+                  : "Direct real-time management and security oversight of all platform Telegram bots."}
               </p>
             </div>
           </div>
@@ -427,7 +528,7 @@ export default function AdminBotsPage() {
             className="border-gray-300 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-800"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin text-blue-500" : ""}`} />
-            {refreshing ? "Checking..." : "Inspect Status"}
+            {refreshing ? (isAr ? "جاري الفحص..." : "Checking...") : isAr ? "فحص وتحديث الحالة" : "Inspect Status"}
           </Button>
           <Button
             size="sm"
@@ -435,7 +536,7 @@ export default function AdminBotsPage() {
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Send className="w-4 h-4 mr-2" />
-            Broadcast Message
+            {isAr ? "بث رسالة للمشتركين" : "Broadcast Message"}
           </Button>
         </div>
       </div>
@@ -778,23 +879,23 @@ export default function AdminBotsPage() {
       </div>
 
       {/* ── Tabs: Connected Users, Security Monitor, Messaging, Logs ─────── */}
-      <Tabs defaultValue="users" className="w-full">
+      <Tabs defaultValue="broadcast" className="w-full">
         <TabsList className="bg-gray-100 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-1">
+          <TabsTrigger value="broadcast" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
+            <Radio className="w-4 h-4 mr-2" />
+            {isAr ? "المجموعات والإشارات والبث" : "Groups & Broadcast"}
+          </TabsTrigger>
           <TabsTrigger value="users" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
             <Users className="w-4 h-4 mr-2" />
-            Connected Users ({botsData?.stats.totalLinkedUsers ?? 0})
+            {isAr ? "المستخدمون المرتبطون" : "Connected Users"} ({botsData?.stats.totalLinkedUsers ?? 0})
           </TabsTrigger>
           <TabsTrigger value="monitor" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
             <ShieldCheck className="w-4 h-4 mr-2" />
-            Security & Tamper Monitor
-          </TabsTrigger>
-          <TabsTrigger value="broadcast" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
-            <Radio className="w-4 h-4 mr-2" />
-            Direct & Broadcast Messaging
+            {isAr ? "مراقبة البوتات والمحتوى" : "Security & Tamper Monitor"}
           </TabsTrigger>
           <TabsTrigger value="logs" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
             <FileText className="w-4 h-4 mr-2" />
-            Incident & Bot Logs
+            {isAr ? "سجلات العمليات" : "Incident & Bot Logs"}
           </TabsTrigger>
         </TabsList>
 
@@ -804,22 +905,24 @@ export default function AdminBotsPage() {
             <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <CardTitle className="text-base text-gray-900 dark:text-white">
-                  Users with Linked Telegram Accounts
+                  {isAr ? "المتداولون المرتبطون بحسابات تيليجرام" : "Users with Linked Telegram Accounts"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  المستخدمون الذين أتموا ربط حساب التيليجرام لاستلام رموز OTP
+                  {isAr
+                    ? "المستخدمون الذين أتموا ربط حساب التيليجرام لاستلام إشعارات التداول ورموز الأمان"
+                    : "Traders who linked their Telegram account for trading signals and security alerts"}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 <Input
-                  placeholder="Search by name, email, chat ID..."
+                  placeholder={isAr ? "بحث بالاسم، البريد أو المعرف..." : "Search by name, email, chat ID..."}
                   value={searchUser}
                   onChange={(e) => setSearchUser(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && fetchLinkedUsers()}
                   className="w-64 h-9 text-xs bg-gray-50 dark:bg-slate-950 border-gray-200 dark:border-slate-800"
                 />
                 <Button size="sm" variant="outline" onClick={fetchLinkedUsers}>
-                  Filter
+                  {isAr ? "تصفية" : "Filter"}
                 </Button>
               </div>
             </CardHeader>
@@ -1135,52 +1238,183 @@ export default function AdminBotsPage() {
             </CardContent>
           </Card>
 
-          {/* ── Official Telegram Group Chat ID Configuration ── */}
+          {/* ── Connected Telegram Groups & Channels Management ── */}
           <Card className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 max-w-3xl mt-6">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base text-gray-900 dark:text-white flex items-center gap-2">
-                <Users className="w-4 h-4 text-blue-400" />
-                Telegram Group Configuration
-              </CardTitle>
-              <CardDescription className="text-xs">
-                تحديد معرف مجموعة تيليجرام الرسمية لتلقي إشارات التداول والتقارير اليومية تلقائياً
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base text-gray-900 dark:text-white flex items-center gap-2">
+                    <Users className="w-4 h-4 text-blue-400" />
+                    {isAr ? "مجموعات وقنوات تيليجرام للبث التلقائي" : "Telegram Broadcast Groups & Channels"}
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    {isAr
+                      ? "إدارة المجموعات والقنوات التي يتصل بها البوت لبث التقارير اليومية وإشارات التداول المباشرة"
+                      : "Manage groups and channels where daily summaries and trade signals are automatically broadcast"}
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="text-xs border-blue-500/30 text-blue-400">
+                  {connectedGroups.length} {isAr ? "مجموعات متصلة" : "Connected"}
+                </Badge>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-3 text-xs">
-              <div>
-                <label className="block text-gray-500 dark:text-slate-400 mb-1 font-semibold">
-                  معرف المجموعة (Group Chat ID):
+            <CardContent className="space-y-4 text-xs">
+              {/* Connected Groups List */}
+              <div className="space-y-2">
+                {connectedGroups.length === 0 ? (
+                  <div className="p-4 text-center rounded-lg border border-dashed border-gray-300 dark:border-slate-800 text-gray-400">
+                    {isAr ? "لم يتم ربط أي مجموعة بعد. أضف معرف المجموعة أدناه." : "No groups configured yet. Add a Chat ID below."}
+                  </div>
+                ) : (
+                  connectedGroups.map((g) => (
+                    <div
+                      key={g.chatId}
+                      className="p-3 rounded-lg border border-gray-200 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-950/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-900 dark:text-white text-sm">
+                            {g.title}
+                          </span>
+                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 font-mono">
+                            {g.type}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-500 dark:text-slate-400">
+                          <span className="font-mono text-[11px] text-blue-400 font-semibold">{g.chatId}</span>
+                          <span>•</span>
+                          {g.isAdmin ? (
+                            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
+                              👑 {isAr ? "مشرف (Admin)" : "Administrator"}
+                            </Badge>
+                          ) : g.botStatus === "member" ? (
+                            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[10px]">
+                              ⚠️ {isAr ? "عضو عادي (يحتاج ترقية لمشرف)" : "Member (Promote to Admin)"}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-[10px]">
+                              ❌ {g.error || (isAr ? "غير متاح" : "Unavailable")}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTestGroupMessage(g.chatId)}
+                          disabled={testingGroupChatId === g.chatId}
+                          className="h-8 text-[11px] border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                        >
+                          <Send className={`w-3.5 h-3.5 mr-1 ${testingGroupChatId === g.chatId ? "animate-spin" : ""}`} />
+                          {testingGroupChatId === g.chatId
+                            ? isAr
+                              ? "جاري الإرسال..."
+                              : "Sending..."
+                            : isAr
+                            ? "إرسال تجربة"
+                            : "Test Ping"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRemoveGroupChat(g.chatId)}
+                          className="h-8 px-2 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                          title={isAr ? "حذف من قائمة البث" : "Remove Group"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Add New Group by ID */}
+              <div className="pt-2 border-t border-gray-100 dark:border-slate-800">
+                <label className="block text-gray-500 dark:text-slate-400 mb-1.5 font-semibold">
+                  {isAr ? "إضافة معرف مجموعة أو قناة جديدة (Chat ID):" : "Add New Group or Channel Chat ID:"}
                 </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input
-                    placeholder="e.g. -1001234567890"
-                    value={groupChatIdInput}
-                    onChange={(e) => setGroupChatIdInput(e.target.value)}
+                    placeholder={isAr ? "مثال: -1001234567890" : "e.g. -1001234567890"}
+                    value={newGroupIdInput}
+                    onChange={(e) => setNewGroupIdInput(e.target.value)}
                     className="font-mono h-9 text-xs bg-gray-50 dark:bg-slate-950 border-gray-200 dark:border-slate-800 text-gray-900 dark:text-white flex-1"
                   />
                   <div className="flex gap-2 shrink-0">
                     <Button
                       size="sm"
-                      onClick={handleSaveGroupId}
+                      onClick={handleAddGroupChat}
                       disabled={savingGroupId}
-                      className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 h-9"
+                      className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 h-9 text-xs"
                     >
-                      {savingGroupId ? "جاري الحفظ..." : "💾 حفظ المعرف"}
+                      <PlusCircle className="w-3.5 h-3.5 mr-1.5" />
+                      {savingGroupId ? (isAr ? "جاري الإضافة..." : "Adding...") : isAr ? "إضافة مجموعة" : "Add Group"}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={handleAutoDetectGroupId}
                       disabled={detectingGroupId}
-                      className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 shrink-0 h-9"
+                      className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 shrink-0 h-9 text-xs"
                     >
-                      {detectingGroupId ? "جاري البحث..." : "🔍 كشف تلقائي"}
+                      {detectingGroupId
+                        ? isAr
+                          ? "جاري البحث..."
+                          : "Detecting..."
+                        : isAr
+                        ? "🔍 كشف تلقائي"
+                        : "🔍 Auto-Detect"}
                     </Button>
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1.5">
-                  💡 ملاحظة: معرف مجموعات تيليجرام يبدأ عادةً بـ <code className="text-blue-400">-100</code>. عند إضافة البوت @XSpyAIBot للمجموعة وإرسال أي رسالة، سيتم الكشف عنه وحفظه تلقائياً.
-                </p>
+
+                {/* Raw IDs Sync (Advanced) */}
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800/60">
+                  <details className="text-[11px] text-gray-500 dark:text-slate-400">
+                    <summary className="cursor-pointer hover:text-gray-700 dark:hover:text-slate-300 font-semibold">
+                      ⚙️ {isAr ? "عرض وتعديل جميع المعرفات مجتمعة (Advanced Raw IDs)" : "Advanced: Edit Raw IDs"}
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      <Input
+                        value={groupChatIdInput}
+                        onChange={(e) => setGroupChatIdInput(e.target.value)}
+                        placeholder="-1003801262293, -100..."
+                        className="font-mono text-xs h-8 bg-gray-50 dark:bg-slate-950 border-gray-200 dark:border-slate-800"
+                      />
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={handleSaveGroupId}
+                        disabled={savingGroupId}
+                        className="h-7 text-[11px]"
+                      >
+                        {isAr ? "💾 حفظ وتحديث المعرفات" : "Save Raw IDs"}
+                      </Button>
+                    </div>
+                  </details>
+                </div>
+
+                <div className="mt-3 p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/50 dark:border-blue-900/40 text-[11px] text-gray-600 dark:text-slate-300 space-y-1">
+                  <p className="font-semibold text-blue-500 dark:text-blue-400">
+                    💡 {isAr ? "كيفية تفعيل إرسال التقارير والإشارات إلى مجموعاتك وقنواتك:" : "How to connect your groups:"}
+                  </p>
+                  <p>
+                    1. {isAr ? "أضف البوت " : "Add bot "}
+                    <code className="text-blue-400 font-bold">@XSpyAIBot</code>
+                    {isAr ? " إلى المجموعة أو القناة المرغوبة." : " to your group or channel."}
+                  </p>
+                  <p>
+                    2. {isAr ? "قم بترقية البوت إلى " : "Promote bot to "}
+                    <strong>{isAr ? "مشرف (Admin)" : "Administrator"}</strong>
+                    {isAr ? " ومنحه صلاحية نشر الرسائل (Post Messages)." : " with permission to post messages."}
+                  </p>
+                  <p>
+                    3. {isAr ? "انسخ معرف المحادثة (Chat ID يبدأ بـ -100) وأضفه أعلاه، ثم اضغط 'إرسال تجربة'." : "Copy Chat ID (-100...) and add it above, then test ping."}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

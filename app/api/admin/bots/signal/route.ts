@@ -168,14 +168,18 @@ export async function POST(req: NextRequest) {
     let successCount = 0;
     let failureCount = 0;
 
-    // Also fetch group chat ID from system_settings for group broadcast
+    // Also fetch group chat IDs from system_settings for group broadcast
     const { data: groupSetting } = await adminClient
       .from("system_settings")
       .select("value")
       .eq("key", "telegram_group_chat_id")
       .maybeSingle();
 
-    const groupChatId = groupSetting?.value as string | undefined;
+    const groupChatId = (groupSetting?.value as string) || "";
+    const targetGroupIds = groupChatId
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
 
     // Broadcast to all linked users
     const sendTasks = users.map(async (profile) => {
@@ -186,31 +190,35 @@ export async function POST(req: NextRequest) {
       else failureCount++;
     });
 
-    // Also broadcast Arabic version to the group chat if set
-    let groupSent = false;
-    if (groupChatId) {
+    // Also broadcast Arabic version to all target groups
+    let groupsSentCount = 0;
+    const groupTasks = targetGroupIds.map(async (cid) => {
       const groupMsg = buildSignalMessage(symbol, duration_sec, payout_percent, direction, "ar");
-      groupSent = await sendTelegramMessage(groupChatId, groupMsg);
-    }
-
-    await Promise.all(sendTasks);
-
-    // Log to admin notifications
-    await adminClient.from("admin_notifications").insert({
-      type: "trade_signal_broadcast",
-      title: "📢 Trade Signal Broadcast Sent",
-      message: `Signal for ${direction.toUpperCase()} on ${symbol} (${duration_sec}s, ${payout_percent}%) sent to ${successCount} users. ${failureCount > 0 ? `${failureCount} failed.` : ""} ${groupSent ? "Group broadcast: ✅" : groupChatId ? "Group broadcast: ❌" : "Group not configured."}`,
-      data: { symbol, duration_sec, payout_percent, direction, successCount, failureCount, groupSent },
-      is_read: false,
-      created_at: new Date().toISOString(),
+      const ok = await sendTelegramMessage(cid, groupMsg);
+      if (ok) groupsSentCount++;
     });
+
+    await Promise.all([...sendTasks, ...groupTasks]);
+
+    // Safely log to admin notifications
+    try {
+      await adminClient.from("admin_notifications").insert({
+        type: "trade_signal_broadcast",
+        title: "📢 Trade Signal Broadcast Sent",
+        message: `Signal for ${direction.toUpperCase()} on ${symbol} (${duration_sec}s, ${payout_percent}%) sent to ${successCount} users and ${groupsSentCount}/${targetGroupIds.length} groups.`,
+        data: { symbol, duration_sec, payout_percent, direction, successCount, failureCount, groupsSentCount, targetGroupIds },
+        is_read: false,
+        created_at: new Date().toISOString(),
+      });
+    } catch {}
 
     return NextResponse.json({
       ok: true,
       successCount,
       failureCount,
       totalUsers: users.length,
-      groupBroadcast: groupSent,
+      groupBroadcast: groupsSentCount > 0,
+      groupsCount: groupsSentCount,
     });
   } catch (error) {
     console.error("[Signal Broadcast Error]", error);

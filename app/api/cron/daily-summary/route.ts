@@ -151,25 +151,38 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Send daily summary to group
-    const sendResult = await sendTelegramMessage(groupChatId, report.message);
+    const targetIds = groupChatId
+      .split(/[,;\n]+/)
+      .map((s: string) => s.trim())
+      .filter((s: string) => s.length > 0);
 
-    // Log admin notification
-    await adminClient.from("admin_notifications").insert({
-      type: "daily_summary_report",
-      title: "📊 Daily Summary Telegram Report Sent",
-      message: sendResult.ok
-        ? `Daily report successfully broadcast to Telegram Group (${groupChatId}).`
-        : `Daily report broadcast failed: ${sendResult.description}`,
-      data: { groupChatId, stats: report.stats, sendResult },
-      is_read: false,
-      created_at: new Date().toISOString(),
-    });
+    const results = await Promise.all(
+      targetIds.map(async (cid: string) => {
+        const res = await sendTelegramMessage(cid, report.message);
+        return { chatId: cid, ...res };
+      })
+    );
+
+    const overallOk = results.some((r) => r.ok);
+
+    // Safely log admin notification
+    try {
+      await adminClient.from("admin_notifications").insert({
+        type: "daily_summary_report",
+        title: "📊 Daily Summary Telegram Report Sent",
+        message: overallOk
+          ? `Daily report broadcast to ${results.filter((r) => r.ok).length} Telegram Group(s).`
+          : `Daily report broadcast failed for all target groups.`,
+        data: { targetIds, results, stats: report.stats },
+        is_read: false,
+        created_at: new Date().toISOString(),
+      });
+    } catch {}
 
     return NextResponse.json({
-      ok: sendResult.ok,
-      sentTo: groupChatId,
-      result: sendResult,
+      ok: overallOk,
+      sentTo: targetIds,
+      results,
       stats: report.stats,
     });
   } catch (error: any) {
@@ -207,24 +220,39 @@ export async function POST(req: NextRequest) {
     }
 
     const report = await generateDailyReport();
-    const sendResult = await sendTelegramMessage(groupChatId, report.message);
 
-    // Log admin notification
-    await adminClient.from("admin_notifications").insert({
-      type: "daily_summary_manual_broadcast",
-      title: "📊 Manual Daily Summary Broadcast Triggered",
-      message: sendResult.ok
-        ? `Admin manually broadcast daily summary to Telegram Group (${groupChatId}).`
-        : `Failed to broadcast daily summary: ${sendResult.description}`,
-      data: { groupChatId, stats: report.stats, sendResult },
-      is_read: false,
-      created_at: new Date().toISOString(),
-    });
+    const targetIds = groupChatId
+      .split(/[,;\n]+/)
+      .map((s: string) => s.trim())
+      .filter((s: string) => s.length > 0);
+
+    const results = await Promise.all(
+      targetIds.map(async (cid: string) => {
+        const res = await sendTelegramMessage(cid, report.message);
+        return { chatId: cid, ...res };
+      })
+    );
+
+    const overallOk = results.some((r) => r.ok);
+
+    // Safely log admin notification
+    try {
+      await adminClient.from("admin_notifications").insert({
+        type: "daily_summary_manual_broadcast",
+        title: "📊 Manual Daily Summary Broadcast Triggered",
+        message: overallOk
+          ? `Admin manually broadcast daily summary to ${results.filter((r) => r.ok).length} Telegram Group(s).`
+          : `Failed to broadcast daily summary: ${results.map((r) => r.description).join("; ")}`,
+        data: { targetIds, results, stats: report.stats },
+        is_read: false,
+        created_at: new Date().toISOString(),
+      });
+    } catch {}
 
     return NextResponse.json({
-      ok: sendResult.ok,
-      sentTo: groupChatId,
-      result: sendResult,
+      ok: overallOk,
+      sentTo: targetIds,
+      results,
       stats: report.stats,
     });
   } catch (error: any) {

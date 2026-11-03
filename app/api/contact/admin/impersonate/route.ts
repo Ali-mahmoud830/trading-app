@@ -20,8 +20,8 @@ export async function POST(req: Request) {
 
     // Verify the caller is an admin
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const { data: callerProfile } = await db
       .from("user_profiles")
       .select("role")
-      .eq("uid", session.user.id)
+      .eq("uid", user.id)
       .single();
 
     if (callerProfile?.role !== "admin") {

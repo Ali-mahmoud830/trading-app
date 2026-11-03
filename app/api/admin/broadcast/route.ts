@@ -11,16 +11,16 @@ const adminClient = () =>
   );
 
 async function verifyAdmin(supabase: ReturnType<typeof createClient>) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) return null;
   const db = adminClient();
   const { data: profile } = await db
     .from("user_profiles")
     .select("role")
-    .eq("uid", session.user.id)
+    .eq("uid", user.id)
     .single();
   if (profile?.role !== "admin") return null;
-  return session.user.id;
+  return user.id;
 }
 
 import { translateMessagePair } from "@/lib/translator";

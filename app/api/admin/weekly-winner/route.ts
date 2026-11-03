@@ -11,16 +11,16 @@ const adminClient = () =>
   );
 
 async function verifyAdmin(supabase: ReturnType<typeof createClient>) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) return null;
   const db = adminClient();
   const { data: profile } = await db
     .from("user_profiles")
     .select("role")
-    .eq("uid", session.user.id)
+    .eq("uid", user.id)
     .single();
   if (profile?.role !== "admin") return null;
-  return session.user.id;
+  return user.id;
 }
 
 export async function POST() {
@@ -70,7 +70,24 @@ export async function POST() {
 
   const sortedWinners = Object.entries(weekWinsMap).sort((a, b) => b[1] - a[1]);
   if (sortedWinners.length === 0) {
-    return NextResponse.json({ message: "No active referrals recorded this week." });
+    const { data: topAllTime } = await db
+      .from("user_profiles")
+      .select("full_name, email, referral_code, total_referrals, referral_earnings")
+      .order("referral_earnings", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const leaderName = topAllTime?.full_name || topAllTime?.email || "N/A";
+    const leaderCode = topAllTime?.referral_code || "N/A";
+    const leaderEarn = topAllTime?.referral_earnings || 0;
+    const leaderRefs = topAllTime?.total_referrals || 0;
+
+    return NextResponse.json({
+      ok: false,
+      message: `لم يتم تسجيل إيداعات إحالة جديدة هذا الأسبوع (منذ يوم الاثنين). المتصدر العام الحالي للمنصة: ${leaderName} (${leaderCode}) برصيد ${leaderRefs} إحالة وأرباح $${leaderEarn}.`,
+      messageEn: `No active referral deposits recorded this week (since Monday). Current platform all-time leader: ${leaderName} (${leaderCode}) with ${leaderRefs} referrals and $${leaderEarn} earnings.`,
+      allTimeLeader: topAllTime,
+    });
   }
 
   const [winnerId, winnerCount] = sortedWinners[0];

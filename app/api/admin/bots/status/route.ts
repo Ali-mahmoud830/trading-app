@@ -165,6 +165,10 @@ export async function GET(req: NextRequest) {
       ...((groupBot as any).anomalies || []),
     ];
 
+    const logs = (recentNotifications && !recentNotifications.error && recentNotifications.data)
+      ? recentNotifications.data
+      : [];
+
     return NextResponse.json({
       status: "ok",
       timestamp: new Date().toISOString(),
@@ -176,9 +180,9 @@ export async function GET(req: NextRequest) {
       },
       stats: {
         totalLinkedUsers,
-        totalNotifications: (recentNotifications.data || []).length,
+        totalNotifications: logs.length,
       },
-      recentLogs: recentNotifications.data || [],
+      recentLogs: logs,
     });
   } catch (error: any) {
     console.error("[Admin Bots Status Error]", error);

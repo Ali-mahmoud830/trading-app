@@ -72,10 +72,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem('language') as Language
-    if (savedLanguage === 'ar') {
-      setLanguage('en')
-      localStorage.setItem('language', 'en')
-    } else if (savedLanguage && localeData[savedLanguage]) {
+    if (savedLanguage && localeData[savedLanguage]) {
       setLanguage(savedLanguage)
     }
     setMounted(true)
@@ -84,7 +81,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return
     localStorage.setItem('language', language)
-    document.documentElement.setAttribute('dir', 'ltr')
+    document.documentElement.setAttribute('dir', language === 'ar' ? 'rtl' : 'ltr')
     document.documentElement.setAttribute('lang', language)
   }, [language, mounted])
 
@@ -129,7 +126,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <LanguageContext.Provider value={value}>
-      <div key={language} dir="ltr">
+      <div key={language} dir={language === 'ar' ? 'rtl' : 'ltr'}>
         {children}
       </div>
     </LanguageContext.Provider>

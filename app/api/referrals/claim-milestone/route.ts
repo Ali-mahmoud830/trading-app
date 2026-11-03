@@ -38,8 +38,8 @@ async function getDynamicMilestones(admin: any): Promise<{ count: number; reward
 
 export async function POST(req: Request) {
   const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const { milestone_count } = body;
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   if (!milestone) {
     return NextResponse.json({ error: "Invalid milestone" }, { status: 400 });
   }
-  const userId = session.user.id;
+  const userId = user.id;
 
   // 1. Count active referrals (referred users with at least one approved deposit)
   const { data: referrals } = await admin
@@ -156,11 +156,11 @@ export async function POST(req: Request) {
 // GET — returns milestone status for the current user
 export async function GET() {
   const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const admin = adminClient();
-  const userId = session.user.id;
+  const userId = user.id;
 
   // Count active referrals
   const { data: referrals } = await admin

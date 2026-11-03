@@ -11,16 +11,16 @@ const adminClient = () =>
   );
 
 async function verifyAdmin(supabase: ReturnType<typeof createClient>) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) return null;
   const db = adminClient();
   const { data: profile } = await db
     .from("user_profiles")
     .select("role")
-    .eq("uid", session.user.id)
+    .eq("uid", user.id)
     .single();
   if (profile?.role !== "admin") return null;
-  return session.user.id;
+  return user.id;
 }
 
 export async function GET() {
@@ -30,11 +30,10 @@ export async function GET() {
 
   const db = adminClient();
 
-  // All non-admin users
+  // All platform users with referral metrics
   const { data: allUsers } = await db
     .from("user_profiles")
-    .select("uid, full_name, email, referral_code, balance, total_referrals, referral_earnings, created_at, status")
-    .neq("role", "admin");
+    .select("uid, full_name, email, referral_code, balance, total_referrals, referral_earnings, created_at, status, role");
 
   const users = allUsers ?? [];
   const userIds = users.map((u: any) => u.uid);

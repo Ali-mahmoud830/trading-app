@@ -194,15 +194,17 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Log notification
-      await adminClient.from("admin_notifications").insert({
-        type: "telegram_broadcast",
-        title: `📢 Telegram Broadcast Sent via @${botType}`,
-        message: `Broadcast delivered to ${successCount} users (${failureCount} failed).`,
-        data: { messageText, successCount, failureCount, timestamp: new Date().toISOString() },
-        is_read: false,
-        created_at: new Date().toISOString(),
-      });
+      // Log notification safely
+      try {
+        await adminClient.from("admin_notifications").insert({
+          type: "telegram_broadcast",
+          title: `📢 Telegram Broadcast Sent via @${botType}`,
+          message: `Broadcast delivered to ${successCount} users (${failureCount} failed).`,
+          data: { messageText, successCount, failureCount, timestamp: new Date().toISOString() },
+          is_read: false,
+          created_at: new Date().toISOString(),
+        });
+      } catch {}
 
       return NextResponse.json({
         ok: true,

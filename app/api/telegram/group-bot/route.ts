@@ -1628,6 +1628,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // ── Handle my_chat_member updates (bot added to group or promoted to admin) ──
+    if (body.my_chat_member) {
+      const memberUpdate = body.my_chat_member;
+      const chat = memberUpdate.chat;
+      if (chat && (chat.type === "group" || chat.type === "supergroup" || chat.type === "channel")) {
+        try {
+          const { data: currentSetting } = await adminClient
+            .from("system_settings")
+            .select("value")
+            .eq("key", "telegram_group_chat_id")
+            .maybeSingle();
+
+          const existing = String(currentSetting?.value || "")
+            .split(/[,;\n]+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+          const newId = String(chat.id);
+          if (!existing.includes(newId)) {
+            existing.push(newId);
+            await adminClient
+              .from("system_settings")
+              .upsert({ key: "telegram_group_chat_id", value: existing.join(", ") }, { onConflict: "key" });
+          }
+        } catch {}
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     const message = body.message;
     if (!message) return NextResponse.json({ ok: true });
 
@@ -1665,15 +1694,30 @@ export async function POST(req: NextRequest) {
 
     const detectedLang = detectLanguage(text, userLang);
 
-    // ── 0. GROUP PERSISTENCE: Auto-save Group Chat ID for broadcasts ──────────
+    // ── 0. GROUP PERSISTENCE: Auto-save Group Chat ID for broadcasts (append without overwriting) ──
     if (chatType === "group" || chatType === "supergroup") {
       try {
-        await adminClient
+        const { data: currentSetting } = await adminClient
           .from("system_settings")
-          .upsert(
-            { key: "telegram_group_chat_id", value: String(chatId) },
-            { onConflict: "key" }
-          );
+          .select("value")
+          .eq("key", "telegram_group_chat_id")
+          .maybeSingle();
+
+        const existing = String(currentSetting?.value || "")
+          .split(/[,;\n]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        const newId = String(chatId);
+        if (!existing.includes(newId)) {
+          existing.push(newId);
+          await adminClient
+            .from("system_settings")
+            .upsert(
+              { key: "telegram_group_chat_id", value: existing.join(", ") },
+              { onConflict: "key" }
+            );
+        }
       } catch {}
     }
 

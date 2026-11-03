@@ -12,8 +12,8 @@ const adminClient = () =>
 
 export async function POST(req: Request) {
   const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const { id } = body; // optional — if missing, marks all as read
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   const query = admin
     .from("notifications")
     .update({ read: true })
-    .eq("user_id", session.user.id);
+    .eq("user_id", user.id);
 
   if (id) query.eq("id", id);
 
