@@ -214,9 +214,9 @@ export async function POST(req: NextRequest) {
       }
 
       const testMsg =
-        `🧪 *رسالة اختبار اتصال من منصة XSPY Trader*\n\n` +
-        `✅ البوت متصل بنجاح وجاهز لبث إشارات التداول والتقارير اليومية.\n` +
-        `⏱ التوقيت: \`${new Date().toISOString()}\``;
+        `🧪 *XSPY Trader Bot — Connection Test*\n\n` +
+        `✅ Bot is connected successfully and ready to broadcast signals and daily reports.\n` +
+        `⏱ Timestamp: \`${new Date().toISOString()}\``;
 
       const res = await fetch(`https://api.telegram.org/bot${GROUP_BOT_TOKEN}/sendMessage`, {
         method: "POST",

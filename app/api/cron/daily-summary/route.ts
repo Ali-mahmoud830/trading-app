@@ -85,33 +85,33 @@ async function generateDailyReport() {
     : "100%";
 
   const message =
-    `📊 *التقرير اليومي وجدول صفقات XSPY Trader* 🚀\n` +
-    `📅 *التاريخ:* \`${dateStr}\`\n\n` +
+    `📊 *XSPY Trader — Daily Report & Trading Schedule* 🚀\n` +
+    `📅 *Date:* \`${dateStr}\`\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `📈 *جدول صفقات التداول اليومية (من الاثنين إلى الجمعة):*\n` +
-    `نقدم لكم يومياً إشارات تداول احترافية ومباشرة بنسب ربح مجزية تُنفذ في ثوانٍ:\n` +
-    `⏱️ *صفقة 30 ثانية:* ربح فوري *2.0%*\n` +
-    `⏱️ *صفقة 45 ثانية:* ربح فوري *2.5%*\n` +
-    `⏱️ *صفقة 60 ثانية:* ربح فوري *3.0%*\n\n` +
+    `📈 *Daily Trading Sessions Schedule (Monday – Friday):*\n` +
+    `We provide daily professional live trade signals with guaranteed high payouts executed in seconds:\n` +
+    `⏱️ *30s Trade:* Instant Profit *2.0%*\n` +
+    `⏱️ *45s Trade:* Instant Profit *2.5%*\n` +
+    `⏱️ *60s Trade:* Instant Profit *3.0%*\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⛏️ *باقات التعدين السحابي (أرباح تضاف يومياً كل 24 ساعة):*\n` +
-    `1️⃣ *باقة المبتدئين:* ($51 - $100) — ربح *1.5%* يومياً | ⏳ المدة: 7 أيام\n` +
-    `2️⃣ *الباقة الاحترافية:* ($101 - $150) — ربح *1.8%* يومياً | ⏳ المدة: 18 يوماً\n` +
-    `3️⃣ *باقة VIP:* ($151 - $200) — ربح *2.0%* يومياً | ⏳ المدة: 30 يوماً\n` +
-    `💰 *الأرباح تضاف كل 24 ساعة، ورأس المال بالكامل يعود فور نهاية الباقة!*\n\n` +
+    `⛏️ *Cloud Mining Packages (Profits added every 24h):*\n` +
+    `1️⃣ *Starter Package:* ($51 – $100) — *1.5%* Daily | ⏳ Duration: 7 Days\n` +
+    `2️⃣ *Professional Package:* ($101 – $150) — *1.8%* Daily | ⏳ Duration: 18 Days\n` +
+    `3️⃣ *VIP Package:* ($151 – $200) — *2.0%* Daily | ⏳ Duration: 30 Days\n` +
+    `💰 *Profits are credited every 24 hours, and 100% of your initial capital returns upon completion!*\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🤝 *نظام الإحالة المتعدد (3 مستويات):*\n` +
-    `اربح من إيداعات، تداولات، وباقات فريقك:\n` +
-    `🥇 المستوى الأول: *7%* | 🥈 المستوى الثاني: *4%* | 🥉 المستوى الثالث: *2%*\n\n` +
+    `🤝 *Multi-Tier Referral System (3 Levels):*\n` +
+    `Earn commissions from your team's deposits, trades, and packages:\n` +
+    `🥇 Level 1: *7%* | 🥈 Level 2: *4%* | 🥉 Level 3: *2%*\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚙️ *السياسة المالية والأمان:*\n` +
-    `💵 الحد الأدنى للإيداع: *$51* فقط\n` +
-    `💸 الحد الأدنى للسحب: *$21* (رسوم 8% فقط)\n` +
-    `⏱ مدة معالجة السحب: من ساعة إلى 24 ساعة كحد أقصى مع تأكيد أمني حصري عبر Gmail.\n\n` +
+    `⚙️ *Financial Policy & Security:*\n` +
+    `💵 Minimum Deposit: *$51* only\n` +
+    `💸 Minimum Withdrawal: *$21* (Only 8% fee)\n` +
+    `⏱ Withdrawal Processing Time: 1 to 24 hours max with exclusive Gmail OTP verification.\n\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🌟 *انضم الآن وكن جزءاً من مجتمع المستثمرين الناجحين:*\n` +
-    `👉 [اضغط هنا لتسجيل حسابك وبدء الأرباح](${OFFICIAL_REF_LINK})\n\n` +
-    `📌 *XSPY Trader – طريقك الذكي نحو الاستقلال المالي!* 💼✨`;
+    `🌟 *Join now and become part of our successful investor community:*\n` +
+    `👉 [Click here to register your account and start earning](${OFFICIAL_REF_LINK})\n\n` +
+    `📌 *XSPY Trader — Your smart path to financial freedom!* 💼✨`;
 
   return {
     message,

@@ -181,19 +181,19 @@ export async function POST(req: NextRequest) {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    // Broadcast to all linked users
+    // Broadcast to all linked users in English (routine trade signal)
     const sendTasks = users.map(async (profile) => {
       if (!profile.telegram_chat_id) return;
-      const message = buildSignalMessage(symbol, duration_sec, payout_percent, direction, "ar");
+      const message = buildSignalMessage(symbol, duration_sec, payout_percent, direction, "en");
       const ok = await sendTelegramMessage(profile.telegram_chat_id, message);
       if (ok) successCount++;
       else failureCount++;
     });
 
-    // Also broadcast Arabic version to all target groups
+    // Also broadcast English version to all target groups
     let groupsSentCount = 0;
     const groupTasks = targetGroupIds.map(async (cid) => {
-      const groupMsg = buildSignalMessage(symbol, duration_sec, payout_percent, direction, "ar");
+      const groupMsg = buildSignalMessage(symbol, duration_sec, payout_percent, direction, "en");
       const ok = await sendTelegramMessage(cid, groupMsg);
       if (ok) groupsSentCount++;
     });

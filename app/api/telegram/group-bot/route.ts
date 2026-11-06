@@ -142,6 +142,12 @@ function containsImpersonationAttempt(text: string): boolean {
     "offizieller support",
     "schreib mir privat",
     "sende deinen code",
+    // Spanish
+    "soy soporte",
+    "soporte oficial",
+    "escríbeme por privado",
+    "escribeme por privado",
+    "envía tu código",
     // Russian
     "я поддержка",
     "я администратор",
@@ -1253,26 +1259,31 @@ async function getAIAnswer(
     // ignore — user may not be linked
   }
 
-  const langNames: Record<SupportedLang, string> = {
-    ar: "Arabic (العربية)",
-    en: "English",
-    fr: "French (Français)",
-    de: "German (Deutsch)",
-    ru: "Russian (Русский)",
-  };
-
   // Real-time synchronization with platform database
   const liveKnowledge = await getLivePlatformKnowledge();
 
   const prompt =
     `${liveKnowledge}\n\n---\n\n` +
     `## CONVERSATION CONTEXT\n` +
-    `You are talking to a user named "${userName}" in the official XSPY Trader Telegram group.\n` +
+    `You are talking to a user named "${userName}" in the official XSPY Trader Telegram community / support.\n` +
     `User Database Info:\n${userInfoStr}\n\n` +
-    `User Message:\n"${userMessage}"\n\n` +
+    `User Message / Question:\n"${userMessage}"\n\n` +
+    `## CRITICAL LANGUAGE RULE (TOP PRIORITY — MUST FOLLOW STRICTLY)\n` +
+    `1. Automatically detect the language in which the user asked their question / wrote their message.\n` +
+    `2. You MUST formulate your entire response in that EXACT SAME LANGUAGE, whatever that language may be!\n` +
+    `   - If the user asks in Arabic (العربية), reply 100% in fluent, natural Arabic.\n` +
+    `   - If the user asks in English, reply 100% in fluent English.\n` +
+    `   - If the user asks in French (Français), reply 100% in fluent French.\n` +
+    `   - If the user asks in German (Deutsch), reply 100% in fluent German.\n` +
+    `   - If the user asks in Spanish (Español), reply 100% in fluent Spanish.\n` +
+    `   - If the user asks in Russian (Русский), reply 100% in fluent Russian.\n` +
+    `   - If the user asks in Turkish (Türkçe), reply 100% in fluent Turkish.\n` +
+    `   - If the user asks in Persian / Farsi (فارسی), reply 100% in fluent Persian.\n` +
+    `   - If the user asks in Urdu (اردو), reply 100% in fluent Urdu.\n` +
+    `   - If the user asks in Italian, Portuguese, Hindi, Indonesian, Chinese, Japanese, or any other language, reply in that exact same language.\n` +
+    `3. NEVER reply in English if the question was asked in another language.\n\n` +
     `## MANDATORY INSTRUCTIONS\n` +
     `- Reply as the XSPY Trader official support assistant\n` +
-    `- TARGET LANGUAGE: ${langNames[lang] || "English"}. You MUST write your entire response strictly in ${langNames[lang] || "English"}!\n` +
     `- WITHDRAWALS: Min $21, fee 8% only, processed within 1–24 hours (1 withdrawal per 24 hours). Explain clearly that withdrawals are verified EXCLUSIVELY via a 6-digit OTP code sent to their registered Gmail address. Linking Telegram bot is optional for trade notifications & announcements.\n` +
     `- MINING PACKAGES: Beginner ($51–$100, 1.5%/day, 7 days), Professional ($101–$150, 1.8%/day, 18 days), VIP ($151–$200, 2%/day, 30 days). Profits credited every 24 hours. Full original principal returned at package completion.\n` +
     `- TRADING: Guaranteed daily sessions (Mon–Fri) opened by admin: 30s = 2%, 45s = 2.5%, 60s = 3% profit.\n` +
@@ -1396,6 +1407,26 @@ function isQuestionForBot(text: string): boolean {
     "kann",
     "ist",
     "wieviel",
+    // Spanish
+    "cómo",
+    "como",
+    "qué",
+    "que",
+    "cuándo",
+    "cuando",
+    "dónde",
+    "donde",
+    "por qué",
+    "porque",
+    "cuánto",
+    "cuanto",
+    "puedo",
+    // Turkish
+    "nasıl",
+    "neden",
+    "ne zaman",
+    "nerede",
+    "kaç",
     // Russian
     "как",
     "что",
@@ -1462,6 +1493,21 @@ function isQuestionForBot(text: string): boolean {
     "empfehlung",
     "sicherheit",
     "brieftasche",
+    // Spanish
+    "depósito",
+    "deposito",
+    "retiro",
+    "retirar",
+    "ganancias",
+    "paquete",
+    "referido",
+    // Turkish
+    "para yatırma",
+    "para çekme",
+    "çekim",
+    "yatırım",
+    "paket",
+    "referans",
     // Russian
     "депозит",
     "вывод",
@@ -1475,7 +1521,7 @@ function isQuestionForBot(text: string): boolean {
   ];
 
   if (questionStarters.some((w) => lower.startsWith(w))) return true;
-  if (lower.includes("?") || lower.includes("؟")) return true;
+  if (lower.includes("?") || lower.includes("؟") || lower.includes("¿") || lower.includes("❓")) return true;
   if (keywords.some((k) => lower.includes(k))) return true;
 
   return false;
@@ -1672,12 +1718,12 @@ export async function POST(req: NextRequest) {
       for (const member of message.new_chat_members) {
         if (member.is_bot) continue;
 
-        const memberLang = detectLanguage("", member.language_code);
+        // Routine group welcome messages are always in English
         await sendMessage(
           chatId,
-          buildWelcomeMessage(member.first_name, memberLang),
+          buildWelcomeMessage(member.first_name, "en"),
           {
-            replyMarkup: buildWelcomeInlineKeyboard(memberLang),
+            replyMarkup: buildWelcomeInlineKeyboard("en"),
           }
         );
       }
@@ -1731,21 +1777,13 @@ export async function POST(req: NextRequest) {
       const siteBanned = await banUserOnSite(userId);
 
       const warningText =
-        detectedLang === "ar"
-          ? `🛡️ *تحذير أمني: محاولة انتحال صفة أو احتيال مالي*\n\n` +
-            `تم حذف الرسالة وكتم العضو @${message.from?.username || userName} لمدة *24 ساعة* لمحاولة انتحال صفة الدعم أو طلب التواصل الخاص.\n\n` +
-            `${siteBanned ? "🔒 تم أيضاً تعليق حسابه على المنصة مؤقتاً.\n\n" : ""}` +
-            `⚠️ *تنبيه حاسم لجميع أعضاء مجتمع XSPY Trader:*\n` +
-            `• إدارة وموظفو المنصة *لن يراسلوك في الخاص أولاً* بأي شكل.\n` +
-            `• لا تشارك أبداً رمز السحب (Gmail OTP) أو كلمات المرور مع أي شخص يدعي المساعدة.\n` +
-            `• الدعم الرسمي متاح فقط داخل الموقع وعبر البوت الموثق.`
-          : `🛡️ *Security Alert: Impersonation / Scam Attempt Blocked*\n\n` +
-            `Message deleted and @${message.from?.username || userName} has been muted for *24 hours* for impersonating platform staff or soliciting private contact.\n\n` +
-            `${siteBanned ? "🔒 Platform account temporarily suspended.\n\n" : ""}` +
-            `⚠️ *Critical Security Reminder:*\n` +
-            `• Official XSPY Trader staff will *NEVER direct message you first*.\n` +
-            `• NEVER share your Gmail OTP withdrawal code, passwords, or seed phrase with anyone.\n` +
-            `• Official support is provided strictly through verified platform channels.`;
+        `🛡️ *Security Alert: Impersonation / Scam Attempt Blocked*\n\n` +
+        `Message deleted and @${message.from?.username || userName} has been muted for *24 hours* for impersonating platform staff or soliciting private contact.\n\n` +
+        `${siteBanned ? "🔒 Platform account temporarily suspended.\n\n" : ""}` +
+        `⚠️ *Critical Security Reminder:*\n` +
+        `• Official XSPY Trader staff will *NEVER direct message you first*.\n` +
+        `• NEVER share your Gmail OTP withdrawal code, passwords, or seed phrase with anyone.\n` +
+        `• Official support is provided strictly through verified platform channels.`;
 
       await sendMessage(chatId, warningText);
 
@@ -1769,15 +1807,10 @@ export async function POST(req: NextRequest) {
       const siteBanned = await banUserOnSite(userId);
 
       const warningText =
-        detectedLang === "ar"
-          ? `⚠️ *مخالفة لسياسة المجموعة*\n\n` +
-            `تم كتم العضو @${message.from?.username || userName} لمدة *24 ساعة* بسبب نشر رابط خارجي.\n\n` +
-            `${siteBanned ? "🔒 تم أيضاً تعليق حسابه على المنصة مؤقتاً.\n\n" : ""}` +
-            `_يُسمح فقط بنشر الروابط التابعة لمنصة XSPY Trader._`
-          : `⚠️ *Group Policy Violation*\n\n` +
-            `@${message.from?.username || userName} has been muted for *24 hours* for posting an external link.\n\n` +
-            `${siteBanned ? "🔒 Their platform account has also been temporarily suspended.\n\n" : ""}` +
-            `_Only links related to XSPY Trader are permitted in this group._`;
+        `⚠️ *Group Policy Violation*\n\n` +
+        `@${message.from?.username || userName} has been muted for *24 hours* for posting an external link.\n\n` +
+        `${siteBanned ? "🔒 Their platform account has also been temporarily suspended.\n\n" : ""}` +
+        `_Only links related to XSPY Trader are permitted in this group._`;
 
       await sendMessage(chatId, warningText);
 

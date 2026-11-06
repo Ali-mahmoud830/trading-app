@@ -175,7 +175,14 @@ function ProfileOtpModal({ open, onClose, onSuccess, sessionId, expiresAt, email
 export default function ProfileClient({ user, profile, preferences }: ProfileClientProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+
+  // Temporarily reset language to English if visiting profile in Arabic while Arabic is hidden
+  useEffect(() => {
+    if (language === "ar") {
+      setLanguage("en");
+    }
+  }, [language, setLanguage]);
 
   // UI states
   const [isEditing, setIsEditing] = useState(false);
@@ -455,7 +462,7 @@ export default function ProfileClient({ user, profile, preferences }: ProfileCli
                 {t("admin.returnToAdmin") || "Return to Admin Panel"}
               </Button>
             )}
-            <LanguageSwitcher />
+            <LanguageSwitcher hideArabic={true} />
             <Button
               variant="outline"
               className="border-red-600 text-red-400 hover:bg-red-600/10 bg-transparent"

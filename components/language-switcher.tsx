@@ -13,15 +13,23 @@ import {
 import { useLanguage } from "@/contexts/language-context"
 import { Language } from "@/lib/i18n"
 
-export function LanguageSwitcher() {
+interface LanguageSwitcherProps {
+    hideArabic?: boolean;
+}
+
+export function LanguageSwitcher({ hideArabic = false }: LanguageSwitcherProps = {}) {
     const { language, setLanguage } = useLanguage()
 
-    const languages: { code: Language; label: string }[] = [
+    const allLanguages: { code: Language; label: string }[] = [
         { code: "en", label: "English" },
         { code: "ar", label: "العربية" },
         { code: "fr", label: "Français" },
         { code: "de", label: "Deutsch" },
     ]
+
+    const languages = hideArabic
+        ? allLanguages.filter((l) => l.code !== "ar")
+        : allLanguages
 
     return (
         <DropdownMenu>
